@@ -396,7 +396,7 @@ mod tests {
             port: 8787,
             upstream_url: "http://127.0.0.1:15721".to_string(),
         };
-        let mgr = HeadroomManager::new(cfg, PathBuf::from(std::env::temp_dir()).join("hr-test.log"));
+        let mgr = HeadroomManager::new(cfg, std::env::temp_dir().join("hr-test.log"));
         let err = mgr.start().unwrap_err();
         match err {
             AppError::Config(m) => assert!(m.contains("找不到 headroom.exe")),

@@ -31,7 +31,7 @@ pub mod webdav_auto_sync;
 pub mod webdav_sync;
 
 pub use config::ConfigService;
-pub use headroom::{HeadroomConfig, HeadroomManager};
+pub use headroom::{HeadroomConfig, HeadroomManager, HeadroomStatus};
 pub use mcp::McpService;
 pub use omo::OmoService;
 pub use prompt::PromptService;
