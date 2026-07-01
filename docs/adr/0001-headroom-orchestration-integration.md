@@ -60,3 +60,9 @@ Claude Code → Headroom(:8787 压缩) → cc-switch 代理(:15721 选供应商+
 3. **占位符凭据透传 — 附带确认。** 客户端发的 `x-api-key: PROXY_MANAGED` 原样穿过 Headroom 到达上游,未被剥离或改写,证明 cc-switch 的占位符注入方案在链路中可行。
 
 补充发现:Headroom 有 `--no-optimize` 直通模式;默认会注入 CCR retrieve 工具与 memory 工具(可用 `--no-ccr-inject-tool` / `--no-memory-tools` 关闭)——是否保留由实现阶段调参决定,不影响架构。
+
+## 子系统1(生命周期服务)交付后的后续注意事项
+
+子系统1(`HeadroomManager` 起停/健康检查/Tauri 命令)已实现并合并,只负责"可靠起停一个 Headroom 进程",不涉及链路方向与压缩开关接线。交付时最终代码审查记录了一条留给**后续接线子系统**的要点:
+
+- **`ANTHROPIC_BASE_URL` 防自环**:Go 版 tray-tool 的 `buildEnv()` 在 spawn Headroom 时**显式**设置 `ANTHROPIC_BASE_URL=<上游>`(即写死指向 cc-switch 代理 :15721),以防 Headroom 继承到指向本代理端口的 `ANTHROPIC_BASE_URL` 而形成自我回环。子系统1 的 `start()` 目前只传 `--anthropic-api-url` CLI flag 与 `HEADROOM_MODE`/`HEADROOM_PORT`,**未**设置 `ANTHROPIC_BASE_URL` env。在链路真正接通(客户端 `ANTHROPIC_BASE_URL` 被写成 :8787、Headroom 上游写成 :15721)后,后续子系统必须确认:要么 Headroom 明确以 CLI flag 优先于 env(则无需补),要么在 spawn 环境中显式设 `ANTHROPIC_BASE_URL=http://127.0.0.1:15721` 补齐回环防护。此项在子系统1 边界内不阻塞,但接线时不可遗漏。
