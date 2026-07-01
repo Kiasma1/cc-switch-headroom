@@ -3,12 +3,17 @@
 //! 移植自 Go 版 tray-tool 的 Proxy/ports 逻辑。本模块自包含，
 //! 不依赖数据库或 AppState，便于独立测试。
 
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
+use std::process::Child;
 use std::process::Command;
+use std::sync::Mutex;
 use std::time::Duration;
+
+use crate::error::AppError;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -116,6 +121,110 @@ pub fn health_check(port: u16, timeout: Duration) -> bool {
     matches!(client.get(&url).send(), Ok(resp) if resp.status().is_success())
 }
 
+/// Headroom 进程的观测状态。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HeadroomStatus {
+    Stopped,
+    Running,
+    PortConflict,
+    Failed,
+}
+
+struct ManagerState {
+    child: Option<Child>,
+    owned_pid: Option<u32>,
+    last_error: Option<String>,
+}
+
+/// Headroom 进程的生命周期管理器。自包含，可独立构造与测试。
+pub struct HeadroomManager {
+    config: HeadroomConfig,
+    log_path: PathBuf,
+    state: Mutex<ManagerState>,
+}
+
+impl HeadroomManager {
+    pub fn new(config: HeadroomConfig, log_path: PathBuf) -> Self {
+        Self {
+            config,
+            log_path,
+            state: Mutex::new(ManagerState {
+                child: None,
+                owned_pid: None,
+                last_error: None,
+            }),
+        }
+    }
+
+    /// 启动 Headroom 进程。若端口已被"我们的"进程占用则视为接管成功。
+    /// 若被陌生进程占用则返回 PortConflict 错误，不强杀。
+    pub fn start(&self) -> Result<(), AppError> {
+        // exe 存在性预检
+        if !self.config.exe_path.exists() {
+            let msg = format!("找不到 headroom.exe: {}", self.config.exe_path.display());
+            self.set_error(&msg);
+            return Err(AppError::Config(msg));
+        }
+
+        // 端口归属判断
+        if is_port_open("127.0.0.1", self.config.port) {
+            let pid = pid_on_port(self.config.port).unwrap_or_default();
+            let cmdline = command_line_for_pid(&pid);
+            if self.config.cmdline_matches(&cmdline) {
+                // 已有匹配进程 —— 接管
+                let mut st = self.state.lock()?;
+                st.owned_pid = pid.parse().ok();
+                st.last_error = None;
+                return Ok(());
+            }
+            let msg = format!("端口 {} 被其他进程占用 (PID {})", self.config.port, pid);
+            self.set_error(&msg);
+            return Err(AppError::Message(msg));
+        }
+
+        // 打开日志文件（追加）
+        if let Some(parent) = self.log_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let log_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.log_path)
+            .map_err(|e| AppError::io(&self.log_path, e))?;
+        let log_file_err = log_file
+            .try_clone()
+            .map_err(|e| AppError::io(&self.log_path, e))?;
+
+        // spawn
+        let child = Command::new(&self.config.exe_path)
+            .args(self.config.build_args())
+            .env("HEADROOM_MODE", "token")
+            .env("HEADROOM_PORT", self.config.port.to_string())
+            .stdout(log_file)
+            .stderr(log_file_err)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| {
+                let msg = format!("启动失败: {e}");
+                self.set_error(&msg);
+                AppError::Message(msg)
+            })?;
+
+        let mut st = self.state.lock()?;
+        st.owned_pid = Some(child.id());
+        st.child = Some(child);
+        st.last_error = None;
+        Ok(())
+    }
+
+    fn set_error(&self, msg: &str) {
+        if let Ok(mut st) = self.state.lock() {
+            st.last_error = Some(msg.to_string());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +320,20 @@ mod tests {
         let dead_port = dead.local_addr().unwrap().port();
         drop(dead);
         assert!(!health_check(dead_port, Duration::from_millis(500)), "无服务应判为不健康");
+    }
+
+    #[test]
+    fn start_fails_when_exe_missing() {
+        let cfg = HeadroomConfig {
+            exe_path: PathBuf::from(r"C:\does\not\exist\headroom.exe"),
+            port: 8787,
+            upstream_url: "http://127.0.0.1:15721".to_string(),
+        };
+        let mgr = HeadroomManager::new(cfg, PathBuf::from(std::env::temp_dir()).join("hr-test.log"));
+        let err = mgr.start().unwrap_err();
+        match err {
+            AppError::Config(m) => assert!(m.contains("找不到 headroom.exe")),
+            other => panic!("expected Config error, got {other:?}"),
+        }
     }
 }
