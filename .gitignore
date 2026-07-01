@@ -30,3 +30,6 @@ copilot-api
 CODEBUDDY.md
 .github
 mainWindow.js
+
+# CodeGraph 本地索引
+.codegraph/
