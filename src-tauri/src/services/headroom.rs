@@ -4,7 +4,6 @@
 //! 不依赖数据库或 AppState，便于独立测试。
 
 use std::fs::OpenOptions;
-use std::io::Write;
 use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
@@ -296,6 +295,7 @@ mod tests {
     }
 
     use std::io::Read;
+    use std::io::Write;
     use std::net::TcpListener as StdTcpListener;
     use std::thread;
 
