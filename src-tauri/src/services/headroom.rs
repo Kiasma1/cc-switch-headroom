@@ -3,6 +3,7 @@
 //! 移植自 Go 版 tray-tool 的 Proxy/ports 逻辑。本模块自包含，
 //! 不依赖数据库或 AppState，便于独立测试。
 
+use std::io::Write;
 use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
@@ -104,6 +105,17 @@ pub fn command_line_for_pid(pid: &str) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
+/// 探测 Headroom 的 /livez 端点是否返回 2xx。
+/// 用于判定进程是否已就绪 / 仍存活。
+pub fn health_check(port: u16, timeout: Duration) -> bool {
+    let url = format!("http://127.0.0.1:{port}/livez");
+    let client = match reqwest::blocking::Client::builder().timeout(timeout).build() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    matches!(client.get(&url).send(), Ok(resp) if resp.status().is_success())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +184,32 @@ mod tests {
         // 端口释放后应为 closed（给系统一点时间）
         std::thread::sleep(Duration::from_millis(200));
         assert!(!is_port_open("127.0.0.1", port), "释放后应为 closed");
+    }
+
+    use std::io::Read;
+    use std::net::TcpListener as StdTcpListener;
+    use std::thread;
+
+    #[test]
+    fn health_check_true_on_200_false_on_no_server() {
+        let listener = StdTcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 512];
+                let _ = stream.read(&mut buf);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+                );
+            }
+        });
+        assert!(health_check(port, Duration::from_secs(2)), "200 应判为健康");
+        let _ = handle.join();
+
+        // 无服务器的端口
+        let dead = StdTcpListener::bind("127.0.0.1:0").unwrap();
+        let dead_port = dead.local_addr().unwrap().port();
+        drop(dead);
+        assert!(!health_check(dead_port, Duration::from_millis(500)), "无服务应判为不健康");
     }
 }
