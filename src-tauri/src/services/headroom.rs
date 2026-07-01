@@ -3,7 +3,13 @@
 //! 移植自 Go 版 tray-tool 的 Proxy/ports 逻辑。本模块自包含，
 //! 不依赖数据库或 AppState，便于独立测试。
 
+use std::net::TcpStream;
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
+use std::process::Command;
+use std::time::Duration;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Headroom 进程的启动配置。
 #[derive(Debug, Clone)]
@@ -45,6 +51,57 @@ impl HeadroomConfig {
             && cmdline.contains("--anthropic-api-url")
             && cmdline.contains(&self.upstream_url)
     }
+}
+
+/// TCP 连接探测端口是否有监听。对应 ports.go isPortOpen。
+pub fn is_port_open(host: &str, port: u16) -> bool {
+    let addr = format!("{host}:{port}");
+    matches!(addr.parse(), Ok(sockaddr)
+        if TcpStream::connect_timeout(&sockaddr, Duration::from_secs(1)).is_ok())
+}
+
+/// 返回监听该端口的进程 PID 字符串；找不到返回 None。
+/// 仅用于判断端口归属，绝不据此直接 taskkill。对应 ports.go pidOnPort。
+pub fn pid_on_port(port: u16) -> Option<String> {
+    let output = Command::new("cmd")
+        .args(["/c", "netstat -ano -p tcp"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let want = format!(":{port}");
+    for line in text.lines() {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        if fields.len() < 5 {
+            continue;
+        }
+        if !fields[0].eq_ignore_ascii_case("TCP") || !fields[3].eq_ignore_ascii_case("LISTENING") {
+            continue;
+        }
+        if fields[1].ends_with(&want) {
+            return Some(fields[fields.len() - 1].to_string());
+        }
+    }
+    None
+}
+
+/// 用 PowerShell 查询指定 PID 的命令行。对应 ports.go commandLineForPID。
+pub fn command_line_for_pid(pid: &str) -> String {
+    if pid.is_empty() {
+        return String::new();
+    }
+    let ps = format!(
+        "(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"
+    );
+    let output = match Command::new("powershell")
+        .args(["-NoProfile", "-Command", &ps])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return String::new(),
+    };
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 #[cfg(test)]
@@ -101,5 +158,19 @@ mod tests {
         let cfg = sample_config();
         let cmd = r"headroom.exe proxy --port 8787 --anthropic-api-url https://api.anthropic.com";
         assert!(!cfg.cmdline_matches(cmd));
+    }
+
+    use std::net::TcpListener;
+
+    #[test]
+    fn is_port_open_true_when_listening_false_when_not() {
+        // 绑定一个临时端口
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        assert!(is_port_open("127.0.0.1", port), "监听中应为 open");
+        drop(listener);
+        // 端口释放后应为 closed（给系统一点时间）
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(!is_port_open("127.0.0.1", port), "释放后应为 closed");
     }
 }
