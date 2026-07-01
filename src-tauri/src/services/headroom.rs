@@ -253,6 +253,34 @@ impl HeadroomManager {
             st.last_error = Some(msg.to_string());
         }
     }
+
+    /// 计算当前观测状态。
+    pub fn status(&self) -> HeadroomStatus {
+        // /livez 通了即认定 Running
+        if health_check(self.config.port, Duration::from_secs(1)) {
+            return HeadroomStatus::Running;
+        }
+        // 端口被占用但非我们的进程 → 冲突
+        if is_port_open("127.0.0.1", self.config.port) {
+            let pid = pid_on_port(self.config.port).unwrap_or_default();
+            let cmdline = command_line_for_pid(&pid);
+            if !self.config.cmdline_matches(&cmdline) {
+                return HeadroomStatus::PortConflict;
+            }
+        }
+        // 有记录的错误 → Failed
+        if let Ok(st) = self.state.lock() {
+            if st.last_error.is_some() {
+                return HeadroomStatus::Failed;
+            }
+        }
+        HeadroomStatus::Stopped
+    }
+
+    /// 返回最近一次错误信息（供前端展示）。
+    pub fn last_error(&self) -> Option<String> {
+        self.state.lock().ok().and_then(|st| st.last_error.clone())
+    }
 }
 
 /// taskkill /T /F 终止进程树。对应 tray-tool 的 kill := exec.Command("taskkill"...)。
@@ -387,5 +415,16 @@ mod tests {
         let mgr = HeadroomManager::new(cfg, std::env::temp_dir().join("hr-test.log"));
         // 从未 start，stop 不应 panic 也不应报错
         mgr.stop().expect("stop 在无进程时应成功");
+    }
+
+    #[test]
+    fn status_stopped_when_nothing_on_port() {
+        let cfg = HeadroomConfig {
+            exe_path: PathBuf::from(r"C:\does\not\exist\headroom.exe"),
+            port: 59788,
+            upstream_url: "http://127.0.0.1:15721".to_string(),
+        };
+        let mgr = HeadroomManager::new(cfg, std::env::temp_dir().join("hr-test.log"));
+        assert_eq!(mgr.status(), HeadroomStatus::Stopped);
     }
 }
