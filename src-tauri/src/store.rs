@@ -1,5 +1,6 @@
+use crate::config::get_home_dir;
 use crate::database::Database;
-use crate::services::{ProxyService, UsageCache};
+use crate::services::{HeadroomConfig, HeadroomManager, ProxyService, UsageCache};
 use std::sync::Arc;
 
 /// 全局应用状态
@@ -7,6 +8,7 @@ pub struct AppState {
     pub db: Arc<Database>,
     pub proxy_service: ProxyService,
     pub usage_cache: Arc<UsageCache>,
+    pub headroom_manager: Arc<HeadroomManager>,
 }
 
 impl AppState {
@@ -14,10 +16,20 @@ impl AppState {
     pub fn new(db: Arc<Database>) -> Self {
         let proxy_service = ProxyService::new(db.clone());
 
+        let home = get_home_dir();
+        let headroom_cfg = HeadroomConfig {
+            exe_path: home.join(".headroom-venv").join("Scripts").join("headroom.exe"),
+            port: 8787,
+            upstream_url: "http://127.0.0.1:15721".to_string(),
+        };
+        let headroom_log = home.join(".headroom").join("logs").join("claude-proxy.log");
+        let headroom_manager = Arc::new(HeadroomManager::new(headroom_cfg, headroom_log));
+
         Self {
             db,
             proxy_service,
             usage_cache: Arc::new(UsageCache::new()),
+            headroom_manager,
         }
     }
 }

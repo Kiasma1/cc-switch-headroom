@@ -53,8 +53,8 @@ pub use mcp::{
 pub use provider::{Provider, ProviderMeta};
 pub use services::{
     skill::{migrate_skills_to_ssot, ImportSkillSelection},
-    ConfigService, EndpointLatency, McpService, PromptService, ProviderService, ProxyService,
-    SkillService, SpeedtestService,
+    ConfigService, EndpointLatency, HeadroomConfig, HeadroomManager, HeadroomStatus, McpService,
+    PromptService, ProviderService, ProxyService, SkillService, SpeedtestService,
 };
 pub use settings::{update_settings, AppSettings};
 pub use store::AppState;
@@ -1350,6 +1350,9 @@ pub fn run() {
             commands::get_proxy_takeover_status,
             commands::set_proxy_takeover_for_app,
             commands::get_proxy_status,
+            commands::headroom_start,
+            commands::headroom_stop,
+            commands::headroom_status,
             commands::get_proxy_config,
             commands::update_proxy_config,
             // Global & Per-App Config
