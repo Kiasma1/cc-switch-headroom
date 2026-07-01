@@ -32,6 +32,19 @@ impl HeadroomConfig {
             "--no-subscription-tracking".to_string(),
         ]
     }
+
+    /// 判断给定的进程命令行是否属于"我们的" Headroom 代理。
+    ///
+    /// 全部条件满足才算匹配，任一不满足即视为陌生进程，禁止终止。
+    /// 对应 tray-tool proxy.go 的 pidMatchesProxy。
+    pub fn cmdline_matches(&self, cmdline: &str) -> bool {
+        let port_arg = format!("--port {}", self.port);
+        cmdline.contains("headroom.exe")
+            && cmdline.contains(" proxy ")
+            && cmdline.contains(&port_arg)
+            && cmdline.contains("--anthropic-api-url")
+            && cmdline.contains(&self.upstream_url)
+    }
 }
 
 #[cfg(test)]
@@ -59,5 +72,34 @@ mod tests {
         // 绑定回环
         let host_idx = args.iter().position(|a| a == "--host").unwrap();
         assert_eq!(args[host_idx + 1], "127.0.0.1");
+    }
+
+    #[test]
+    fn cmdline_matches_our_headroom() {
+        let cfg = sample_config();
+        let cmd = r"headroom.exe proxy --port 8787 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
+        assert!(cfg.cmdline_matches(cmd));
+    }
+
+    #[test]
+    fn cmdline_rejects_different_port() {
+        let cfg = sample_config();
+        let cmd = r"headroom.exe proxy --port 9999 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
+        assert!(!cfg.cmdline_matches(cmd));
+    }
+
+    #[test]
+    fn cmdline_rejects_stranger_process() {
+        let cfg = sample_config();
+        // 端口相同但不是 headroom —— 绝不能误判为我们的进程
+        let cmd = r"python.exe -m http.server 8787";
+        assert!(!cfg.cmdline_matches(cmd));
+    }
+
+    #[test]
+    fn cmdline_rejects_wrong_upstream() {
+        let cfg = sample_config();
+        let cmd = r"headroom.exe proxy --port 8787 --anthropic-api-url https://api.anthropic.com";
+        assert!(!cfg.cmdline_matches(cmd));
     }
 }
