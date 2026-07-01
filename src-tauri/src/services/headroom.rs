@@ -217,11 +217,50 @@ impl HeadroomManager {
         Ok(())
     }
 
+    /// 停止我们启动/接管的 Headroom 进程树。
+    /// 只终止确认归属我们的进程，绝不误杀陌生 PID。
+    pub fn stop(&self) -> Result<(), AppError> {
+        let pid = {
+            let st = self.state.lock()?;
+            st.owned_pid
+        };
+
+        if let Some(pid) = pid {
+            kill_process_tree(pid);
+        }
+
+        // 二次清理：若启动器已退出但监听子/孙进程仍在，按端口匹配再清一次
+        if let Some(port_pid) = pid_on_port(self.config.port) {
+            let cmdline = command_line_for_pid(&port_pid);
+            if self.config.cmdline_matches(&cmdline) {
+                if let Ok(p) = port_pid.parse::<u32>() {
+                    kill_process_tree(p);
+                }
+            }
+        }
+
+        let mut st = self.state.lock()?;
+        if let Some(mut child) = st.child.take() {
+            let _ = child.wait();
+        }
+        st.owned_pid = None;
+        st.last_error = None;
+        Ok(())
+    }
+
     fn set_error(&self, msg: &str) {
         if let Ok(mut st) = self.state.lock() {
             st.last_error = Some(msg.to_string());
         }
     }
+}
+
+/// taskkill /T /F 终止进程树。对应 tray-tool 的 kill := exec.Command("taskkill"...)。
+fn kill_process_tree(pid: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
 }
 
 #[cfg(test)]
@@ -335,5 +374,18 @@ mod tests {
             AppError::Config(m) => assert!(m.contains("找不到 headroom.exe")),
             other => panic!("expected Config error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn stop_is_idempotent_when_nothing_running() {
+        let cfg = HeadroomConfig {
+            exe_path: PathBuf::from(r"C:\does\not\exist\headroom.exe"),
+            // 用一个几乎不可能被占用的高位端口，避免误触真实进程
+            port: 59787,
+            upstream_url: "http://127.0.0.1:15721".to_string(),
+        };
+        let mgr = HeadroomManager::new(cfg, std::env::temp_dir().join("hr-test.log"));
+        // 从未 start，stop 不应 panic 也不应报错
+        mgr.stop().expect("stop 在无进程时应成功");
     }
 }
