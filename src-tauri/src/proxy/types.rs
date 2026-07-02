@@ -117,6 +117,12 @@ pub struct ProxyTakeoverStatus {
     pub openclaw: bool,
 }
 
+/// 各应用 Headroom 压缩状态
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct HeadroomCompressionStatus {
+    pub claude: bool,
+}
+
 /// API 格式类型（预留，当前不需要格式转换）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]

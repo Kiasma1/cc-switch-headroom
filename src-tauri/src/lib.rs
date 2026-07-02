@@ -1349,6 +1349,8 @@ pub fn run() {
             commands::stop_proxy_with_restore,
             commands::get_proxy_takeover_status,
             commands::set_proxy_takeover_for_app,
+            commands::set_compression_for_app,
+            commands::get_compression_status,
             commands::get_proxy_status,
             commands::headroom_start,
             commands::headroom_stop,

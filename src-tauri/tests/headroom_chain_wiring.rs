@@ -68,3 +68,12 @@ fn compression_on_requires_takeover_enabled() {
         "set_compression_for_app 必须校验接管为开"
     );
 }
+
+#[test]
+fn compression_commands_registered() {
+    let src = std::fs::read_to_string("src/lib.rs").unwrap();
+    assert!(
+        src.contains("set_compression_for_app") && src.contains("get_compression_status"),
+        "压缩命令必须注册到 generate_handler"
+    );
+}
