@@ -203,6 +203,7 @@ impl HeadroomManager {
             .args(self.config.build_args())
             .env("HEADROOM_MODE", "token")
             .env("HEADROOM_PORT", self.config.port.to_string())
+            .env("ANTHROPIC_BASE_URL", "http://127.0.0.1:15721")
             .stdout(log_file)
             .stderr(log_file_err)
             .creation_flags(CREATE_NO_WINDOW)
