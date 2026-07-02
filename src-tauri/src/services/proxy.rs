@@ -2713,6 +2713,16 @@ impl ProxyService {
         }
         Ok(())
     }
+
+    /// 计算 Claude 的 base URL：压缩开 → Headroom 地址；否则 → cc-switch 代理地址。
+    /// 压缩关时返回值必须与 build_proxy_urls 的 Claude URL 逐字节一致。
+    pub fn claude_base_url(claude_config: &AppProxyConfig, proxy_url: &str) -> String {
+        if claude_config.compression_enabled {
+            "http://127.0.0.1:8787".to_string()
+        } else {
+            proxy_url.to_string()
+        }
+    }
 }
 
 #[cfg(test)]
