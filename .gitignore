@@ -33,3 +33,6 @@ mainWindow.js
 
 # CodeGraph 本地索引
 .codegraph/
+
+# 视觉伴侣原型(brainstorming)
+.superpowers/

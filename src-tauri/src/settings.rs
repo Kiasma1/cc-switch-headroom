@@ -372,6 +372,9 @@ pub struct AppSettings {
     /// Whether to show the failover toggle independently on the main page
     #[serde(default)]
     pub enable_failover_toggle: bool,
+    /// Whether to show the Headroom compression toggle on the main page (default on)
+    #[serde(default = "default_true")]
+    pub enable_compression_toggle: bool,
     /// Keep Codex ChatGPT login material in auth.json when switching to third-party providers.
     /// Opt-in: defaults to false so third-party switches cleanly overwrite auth.json.
     #[serde(default)]
@@ -503,6 +506,7 @@ impl Default for AppSettings {
             usage_confirmed: None,
             stream_check_confirmed: None,
             enable_failover_toggle: false,
+            enable_compression_toggle: true,
             preserve_codex_official_auth_on_switch: false,
             unify_codex_session_history: false,
             unify_codex_migrate_existing: None,

@@ -68,6 +68,7 @@ import { EnvWarningBanner } from "@/components/env/EnvWarningBanner";
 import { ProxyToggle } from "@/components/proxy/ProxyToggle";
 import { ClaudeDesktopRouteToggle } from "@/components/proxy/ClaudeDesktopRouteToggle";
 import { FailoverToggle } from "@/components/proxy/FailoverToggle";
+import { CompressionToggle } from "@/components/proxy/CompressionToggle";
 import UsageScriptModal from "@/components/UsageScriptModal";
 import UnifiedMcpPanel from "@/components/mcp/UnifiedMcpPanel";
 import PromptPanel from "@/components/prompts/PromptPanel";
@@ -1246,6 +1247,10 @@ function App() {
                   {activeApp !== "claude-desktop" &&
                     settingsData?.enableFailoverToggle && (
                       <FailoverToggle activeApp={activeApp} />
+                    )}
+                  {activeApp !== "claude-desktop" &&
+                    settingsData?.enableCompressionToggle && (
+                      <CompressionToggle activeApp={activeApp} />
                     )}
                 </div>
               )}
