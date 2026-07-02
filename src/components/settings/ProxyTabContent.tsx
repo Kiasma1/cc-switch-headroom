@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Server, Activity, Zap, Globe, ShieldAlert } from "lucide-react";
+import { Server, Activity, Zap, Globe, ShieldAlert, Minimize2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
@@ -159,6 +159,17 @@ export function ProxyTabContent({
                 )}
                 checked={settings?.enableFailoverToggle ?? false}
                 onCheckedChange={handleFailoverToggleChange}
+              />
+              <ToggleRow
+                icon={<Minimize2 className="h-4 w-4 text-emerald-500" />}
+                title={t("settings.advanced.proxy.enableCompressionToggle")}
+                description={t(
+                  "settings.advanced.proxy.enableCompressionToggleDescription",
+                )}
+                checked={settings?.enableCompressionToggle ?? true}
+                onCheckedChange={(checked) =>
+                  void onAutoSave({ enableCompressionToggle: checked })
+                }
               />
 
               {!isRunning && (
