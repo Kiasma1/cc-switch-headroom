@@ -446,3 +446,28 @@ pub async fn get_circuit_breaker_stats(
     let _ = (state, provider_id, app_type);
     Ok(None)
 }
+
+/// 为指定应用开启/关闭 Headroom 压缩
+#[tauri::command]
+pub async fn set_compression_for_app(
+    state: tauri::State<'_, AppState>,
+    app_type: String,
+    enabled: bool,
+) -> Result<bool, String> {
+    state
+        .proxy_service
+        .set_compression_for_app(&app_type, enabled)
+        .await
+}
+
+/// 获取各应用压缩状态
+#[tauri::command]
+pub async fn get_compression_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<HeadroomCompressionStatus, String> {
+    let claude = state
+        .proxy_service
+        .get_compression_for_app("claude")
+        .await?;
+    Ok(HeadroomCompressionStatus { claude })
+}

@@ -117,6 +117,12 @@ pub struct ProxyTakeoverStatus {
     pub openclaw: bool,
 }
 
+/// 各应用 Headroom 压缩状态
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct HeadroomCompressionStatus {
+    pub claude: bool,
+}
+
 /// API 格式类型（预留，当前不需要格式转换）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -165,7 +171,7 @@ pub struct GlobalProxyConfig {
 }
 
 /// 应用级代理配置（每个 app 独立）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppProxyConfig {
     /// 应用类型 (claude/codex/gemini)
@@ -192,6 +198,9 @@ pub struct AppProxyConfig {
     pub circuit_error_rate_threshold: f64,
     /// 计算错误率的最小请求数
     pub circuit_min_requests: u32,
+    /// 该 app 是否启用 Headroom 压缩（仅在 enabled=true 时可置 true）
+    #[serde(default)]
+    pub compression_enabled: bool,
 }
 
 /// 整流器配置

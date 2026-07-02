@@ -131,6 +131,7 @@ impl Database {
             circuit_failure_threshold INTEGER NOT NULL DEFAULT 4, circuit_success_threshold INTEGER NOT NULL DEFAULT 2,
             circuit_timeout_seconds INTEGER NOT NULL DEFAULT 60, circuit_error_rate_threshold REAL NOT NULL DEFAULT 0.6,
             circuit_min_requests INTEGER NOT NULL DEFAULT 10,
+            compression_enabled INTEGER NOT NULL DEFAULT 0,
             default_cost_multiplier TEXT NOT NULL DEFAULT '1',
             pricing_model_source TEXT NOT NULL DEFAULT 'response',
             created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -593,6 +594,14 @@ impl Database {
                 "proxy_config",
                 "non_streaming_timeout",
                 "INTEGER NOT NULL DEFAULT 600",
+            )?;
+
+            // Headroom 压缩开关（默认关闭）
+            Self::add_column_if_missing(
+                conn,
+                "proxy_config",
+                "compression_enabled",
+                "INTEGER NOT NULL DEFAULT 0",
             )?;
         }
 

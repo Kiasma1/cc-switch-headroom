@@ -25,6 +25,9 @@ impl AppState {
         let headroom_log = home.join(".headroom").join("logs").join("claude-proxy.log");
         let headroom_manager = Arc::new(HeadroomManager::new(headroom_cfg, headroom_log));
 
+        // 将同一个 Headroom 管理器注入到 ProxyService，使 set_compression_for_app 可以编排 Headroom 生命周期。
+        proxy_service.set_headroom_manager(headroom_manager.clone());
+
         Self {
             db,
             proxy_service,

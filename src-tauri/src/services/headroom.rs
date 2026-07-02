@@ -16,6 +16,9 @@ use crate::error::AppError;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+/// Headroom 压缩代理的默认本地端口。
+pub const DEFAULT_HEADROOM_PORT: u16 = 8787;
+
 /// Headroom 进程的启动配置。
 #[derive(Debug, Clone)]
 pub struct HeadroomConfig {
@@ -200,6 +203,7 @@ impl HeadroomManager {
             .args(self.config.build_args())
             .env("HEADROOM_MODE", "token")
             .env("HEADROOM_PORT", self.config.port.to_string())
+            .env("ANTHROPIC_BASE_URL", "http://127.0.0.1:15721")
             .stdout(log_file)
             .stderr(log_file_err)
             .creation_flags(CREATE_NO_WINDOW)
@@ -298,7 +302,7 @@ mod tests {
     fn sample_config() -> HeadroomConfig {
         HeadroomConfig {
             exe_path: PathBuf::from(r"C:\Users\me\.headroom-venv\Scripts\headroom.exe"),
-            port: 8787,
+            port: DEFAULT_HEADROOM_PORT,
             upstream_url: "http://127.0.0.1:15721".to_string(),
         }
     }
@@ -309,7 +313,7 @@ mod tests {
         assert_eq!(args[0], "proxy");
         // 端口成对出现
         let port_idx = args.iter().position(|a| a == "--port").unwrap();
-        assert_eq!(args[port_idx + 1], "8787");
+        assert_eq!(args[port_idx + 1], DEFAULT_HEADROOM_PORT.to_string());
         // 上游成对出现且指向 cc-switch 代理
         let up_idx = args.iter().position(|a| a == "--anthropic-api-url").unwrap();
         assert_eq!(args[up_idx + 1], "http://127.0.0.1:15721");
@@ -393,7 +397,7 @@ mod tests {
     fn start_fails_when_exe_missing() {
         let cfg = HeadroomConfig {
             exe_path: PathBuf::from(r"C:\does\not\exist\headroom.exe"),
-            port: 8787,
+            port: DEFAULT_HEADROOM_PORT,
             upstream_url: "http://127.0.0.1:15721".to_string(),
         };
         let mgr = HeadroomManager::new(cfg, std::env::temp_dir().join("hr-test.log"));
