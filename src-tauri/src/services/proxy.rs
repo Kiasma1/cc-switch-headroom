@@ -757,6 +757,12 @@ impl ProxyService {
             .await
             .map_err(|e| format!("删除 {app_type_str} Live 备份失败: {e}"))?;
 
+        // 接管转关时,联动关压缩（避免遗留指向 :8787 的死配置）
+        if current_config.compression_enabled {
+            log::info!("接管关闭,联动关闭 Headroom 压缩");
+            self.set_compression_for_app("claude", false).await?;
+        }
+
         // 3) 设置 proxy_config.enabled = false
         let mut updated_config = self
             .db

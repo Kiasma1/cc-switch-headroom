@@ -46,3 +46,14 @@ fn headroom_spawn_sets_anthropic_base_url_env() {
         "headroom spawn 必须设 ANTHROPIC_BASE_URL=http://127.0.0.1:15721 防回环"
     );
 }
+
+/// 接管转关时,若 compression_enabled 为 true,应被联动置 false。
+/// 本测试用 grep 源码方式锁定"联动逻辑必须存在"的不变量。
+#[test]
+fn takeover_off_turns_off_compression() {
+    let src = std::fs::read_to_string("src/services/proxy.rs").unwrap();
+    assert!(
+        src.contains("compression_enabled") && src.contains("set_compression_for_app"),
+        "接管转关必须联动关压缩"
+    );
+}
