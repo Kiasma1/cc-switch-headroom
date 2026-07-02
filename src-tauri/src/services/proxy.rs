@@ -767,10 +767,32 @@ impl ProxyService {
             .await
             .map_err(|e| format!("删除 {app_type_str} Live 备份失败: {e}"))?;
 
-        // 接管转关时,联动关压缩（避免遗留指向 :8787 的死配置）
+        // 接管转关时,联动关压缩。
+        // 注意：不能调用完整的 set_compression_for_app(false)——它会经
+        // claude_base_url 决策把 Live 重写为 :15721,覆盖掉步骤 1 刚恢复的
+        // 接管前配置(Anthropic 上游),导致 Live 指向已关停的代理端口,用户卡死。
+        // 此处 Live restore 已完成,只需持久化 + 停 Headroom。
         if current_config.compression_enabled {
             log::info!("接管关闭,联动关闭 Headroom 压缩");
-            self.set_compression_for_app("claude", false).await?;
+            let mut updated = self
+                .db
+                .get_proxy_config_for_app("claude")
+                .await
+                .map_err(|e| format!("读取 claude 配置失败: {e}"))?;
+            updated.compression_enabled = false;
+            self.db
+                .update_proxy_config_for_app(updated)
+                .await
+                .map_err(|e| format!("持久化压缩状态失败: {e}"))?;
+            let headroom = self
+                .headroom_manager
+                .read()
+                .await
+                .clone()
+                .ok_or_else(|| "未注入 HeadroomManager".to_string())?;
+            headroom
+                .stop()
+                .map_err(|e| format!("停止 Headroom 失败: {e}"))?;
         }
 
         // 3) 设置 proxy_config.enabled = false
@@ -1412,13 +1434,20 @@ impl ProxyService {
         if let Ok(mut live_config) = self.read_claude_live() {
             let claude_provider = self.require_current_provider_for_app(&AppType::Claude)?;
             let claude_provider = self.claude_provider_with_effective_settings(&claude_provider)?;
+            // 经 claude_base_url 决策：压缩开 → Headroom 地址;否则 → 代理地址（逐字节一致）
+            let claude_config = self
+                .db
+                .get_proxy_config_for_app("claude")
+                .await
+                .map_err(|e| format!("读取 claude 配置失败: {e}"))?;
+            let effective_url = Self::claude_base_url(&claude_config, &proxy_url);
             Self::apply_claude_takeover_fields_for_provider(
                 &mut live_config,
-                &proxy_url,
+                &effective_url,
                 &claude_provider,
             );
             self.write_claude_live(&live_config)?;
-            log::info!("Claude Live 配置已接管，代理地址: {proxy_url}");
+            log::info!("Claude Live 配置已接管，代理地址: {effective_url}");
         }
 
         // Codex: 修改 config.toml 的 base_url，auth.json 的 OPENAI_API_KEY（代理会注入真实 Token）
@@ -1555,17 +1584,24 @@ impl ProxyService {
                         .get_current_provider_for_app(&AppType::Claude)
                         .ok()
                         .flatten();
+                    // 经 claude_base_url 决策：压缩开 → Headroom 地址;否则 → 代理地址（逐字节一致）
+                    let claude_config = self
+                        .db
+                        .get_proxy_config_for_app("claude")
+                        .await
+                        .map_err(|e| format!("读取 claude 配置失败: {e}"))?;
+                    let effective_url = Self::claude_base_url(&claude_config, &proxy_url);
                     if let Some(provider) = claude_provider.as_ref() {
                         let provider = self.claude_provider_with_effective_settings(provider)?;
                         Self::apply_claude_takeover_fields_for_provider(
                             &mut live_config,
-                            &proxy_url,
+                            &effective_url,
                             &provider,
                         );
                     } else {
                         Self::apply_claude_takeover_fields_with_policy(
                             &mut live_config,
-                            &proxy_url,
+                            &effective_url,
                             ClaudeTakeoverAuthPolicy::PreserveExistingOrAuthToken,
                         );
                     }
