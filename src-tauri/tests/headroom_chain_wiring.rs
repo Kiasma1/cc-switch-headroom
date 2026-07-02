@@ -1,5 +1,6 @@
 use cc_switch_lib::proxy::types::AppProxyConfig;
 use cc_switch_lib::ProxyService;
+use std::path::PathBuf;
 
 #[test]
 fn app_proxy_config_default_compression_disabled() {
@@ -76,4 +77,24 @@ fn compression_commands_registered() {
         src.contains("set_compression_for_app") && src.contains("get_compression_status"),
         "压缩命令必须注册到 generate_handler"
     );
+}
+
+/// 真实进程端到端：压缩开 → 探活 → 压缩关 → 确认恢复。
+/// 需要本机 ~/.headroom-venv/Scripts/headroom.exe + 代理接管已开启的 Claude 配置。
+/// 手动运行：cargo test --test headroom_chain_wiring real_compression_on_off_sequence -- --ignored --nocapture
+#[test]
+#[ignore]
+fn real_compression_on_off_sequence() {
+    let home = std::env::var("USERPROFILE").expect("USERPROFILE");
+    let exe = PathBuf::from(&home)
+        .join(".headroom-venv")
+        .join("Scripts")
+        .join("headroom.exe");
+    assert!(exe.exists(), "需要 headroom.exe: {}", exe.display());
+
+    // 用非默认端口 18798 避免撞上正在运行的 8787。
+    // 构造 ProxyService + 真实 DB 测试 fixture（参考 tests/support.rs）
+    // 或直接测编排函数 set_compression_for_app 的返回值与状态迁移。
+    // 本测试为骨架，具体实现依赖 DB 测试 fixture。
+    let _ = exe;
 }
