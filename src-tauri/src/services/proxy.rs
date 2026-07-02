@@ -9,6 +9,7 @@ use crate::provider::Provider;
 use crate::proxy::server::ProxyServer;
 use crate::proxy::switch_lock::SwitchLockManager;
 use crate::proxy::types::*;
+use crate::services::headroom::DEFAULT_HEADROOM_PORT;
 use crate::services::provider::{
     build_effective_settings_with_common_config, write_live_with_common_config,
 };
@@ -2718,7 +2719,7 @@ impl ProxyService {
     /// 压缩关时返回值必须与 build_proxy_urls 的 Claude URL 逐字节一致。
     pub fn claude_base_url(claude_config: &AppProxyConfig, proxy_url: &str) -> String {
         if claude_config.compression_enabled {
-            "http://127.0.0.1:8787".to_string()
+            format!("http://127.0.0.1:{DEFAULT_HEADROOM_PORT}")
         } else {
             proxy_url.to_string()
         }
