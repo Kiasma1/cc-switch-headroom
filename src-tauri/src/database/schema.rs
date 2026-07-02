@@ -456,6 +456,17 @@ impl Database {
             Ok(())
         })();
 
+        // 无条件迁移：每次启动都检查并添加缺失的列（幂等）
+        // 这些不依赖 user_version，因为已存在的数据库可能跳过版本化迁移
+        if result.is_ok() {
+            Self::add_column_if_missing(
+                conn,
+                "proxy_config",
+                "compression_enabled",
+                "INTEGER NOT NULL DEFAULT 0",
+            )?;
+        }
+
         match result {
             Ok(_) => {
                 conn.execute("RELEASE schema_migration;", [])
