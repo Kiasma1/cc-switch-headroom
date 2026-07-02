@@ -9,7 +9,7 @@ use crate::provider::Provider;
 use crate::proxy::server::ProxyServer;
 use crate::proxy::switch_lock::SwitchLockManager;
 use crate::proxy::types::*;
-use crate::services::headroom::DEFAULT_HEADROOM_PORT;
+use crate::services::headroom::{DEFAULT_HEADROOM_PORT, HeadroomManager, HeadroomStatus};
 use crate::services::provider::{
     build_effective_settings_with_common_config, write_live_with_common_config,
 };
@@ -59,6 +59,8 @@ pub struct ProxyService {
     /// AppHandle，用于传递给 ProxyServer 以支持故障转移时的 UI 更新
     app_handle: Arc<RwLock<Option<tauri::AppHandle>>>,
     switch_locks: SwitchLockManager,
+    /// Headroom 进程管理器，由 AppState 在构造后注入（late setter）。
+    headroom_manager: Arc<RwLock<Option<Arc<HeadroomManager>>>>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -73,6 +75,7 @@ impl ProxyService {
             server: Arc::new(RwLock::new(None)),
             app_handle: Arc::new(RwLock::new(None)),
             switch_locks: SwitchLockManager::new(),
+            headroom_manager: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -400,6 +403,13 @@ impl ProxyService {
     pub fn set_app_handle(&self, handle: tauri::AppHandle) {
         futures::executor::block_on(async {
             *self.app_handle.write().await = Some(handle);
+        });
+    }
+
+    /// 注入 Headroom 进程管理器（在 AppState 构造后调用）。
+    pub fn set_headroom_manager(&self, manager: Arc<HeadroomManager>) {
+        futures::executor::block_on(async {
+            *self.headroom_manager.write().await = Some(manager);
         });
     }
 
@@ -799,6 +809,113 @@ impl ProxyService {
         }
 
         Ok(())
+    }
+
+    /// 为指定应用开启/关闭 Headroom 压缩。
+    /// 编排：门禁校验 → Headroom 生命周期 → 配置写入 → 状态持久化。
+    /// 返回 needs_restart=true（压缩开关改的是 base URL,需重启客户端生效）。
+    pub async fn set_compression_for_app(
+        &self,
+        app_type: &str,
+        enabled: bool,
+    ) -> Result<bool, String> {
+        let app = AppType::from_str(app_type).map_err(|e| format!("无效的应用类型: {e}"))?;
+        let app_type_str = app.as_str();
+
+        // 门禁：仅 Claude 支持压缩
+        if app_type_str != "claude" {
+            return Err("当前仅 Claude 支持 Headroom 压缩".to_string());
+        }
+
+        let config = self
+            .db
+            .get_proxy_config_for_app(app_type_str)
+            .await
+            .map_err(|e| format!("获取 {app_type_str} 配置失败: {e}"))?;
+
+        // 门禁：接管须为开
+        if enabled && !config.enabled {
+            return Err("请先开启代理接管再启用压缩".to_string());
+        }
+
+        let headroom = self
+            .headroom_manager
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| "未注入 HeadroomManager".to_string())?;
+
+        if enabled {
+            // 开：先起 Headroom,就绪后改配置
+            headroom
+                .start()
+                .map_err(|e| format!("启动 Headroom 失败: {e}"))?;
+
+            // 轮询等待就绪（最多 ~30s）
+            let mut ready = false;
+            for _ in 0..30 {
+                if headroom.status() == HeadroomStatus::Running {
+                    ready = true;
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            if !ready {
+                return Err("Headroom 未在 30s 内就绪".to_string());
+            }
+
+            // 持久化 + 重写配置（经 claude_base_url 决策,此时算出 :8787）
+            let mut updated = self
+                .db
+                .get_proxy_config_for_app(app_type_str)
+                .await
+                .map_err(|e| format!("获取配置失败: {e}"))?;
+            updated.compression_enabled = true;
+            self.db
+                .update_proxy_config_for_app(updated)
+                .await
+                .map_err(|e| format!("持久化压缩状态失败: {e}"))?;
+
+            // 重写 Claude live 配置（经 claude_base_url 决策写入 :8787）
+            self.takeover_live_config_strict(&app)
+                .await
+                .map_err(|e| format!("重写 Claude 配置失败: {e}"))?;
+
+            Ok(true) // needs_restart
+        } else {
+            // 关：先改配置回 :15721,再停 Headroom
+            let mut updated = self
+                .db
+                .get_proxy_config_for_app(app_type_str)
+                .await
+                .map_err(|e| format!("获取配置失败: {e}"))?;
+            updated.compression_enabled = false;
+            self.db
+                .update_proxy_config_for_app(updated)
+                .await
+                .map_err(|e| format!("持久化压缩状态失败: {e}"))?;
+
+            // 重写 Claude live 配置（经 claude_base_url 决策,此时算出 :15721）
+            self.takeover_live_config_strict(&app)
+                .await
+                .map_err(|e| format!("重写 Claude 配置失败: {e}"))?;
+
+            headroom
+                .stop()
+                .map_err(|e| format!("停止 Headroom 失败: {e}"))?;
+
+            Ok(true) // needs_restart
+        }
+    }
+
+    /// 读取指定应用的压缩状态。
+    pub async fn get_compression_for_app(&self, app_type: &str) -> Result<bool, String> {
+        let config = self
+            .db
+            .get_proxy_config_for_app(app_type)
+            .await
+            .map_err(|e| format!("获取 {app_type} 配置失败: {e}"))?;
+        Ok(config.compression_enabled)
     }
 
     /// 同步 Live 配置中的 Token 到数据库
@@ -1364,13 +1481,20 @@ impl ProxyService {
                 let claude_provider = self.require_current_provider_for_app(&AppType::Claude)?;
                 let claude_provider =
                     self.claude_provider_with_effective_settings(&claude_provider)?;
+                // 经 claude_base_url 决策：压缩开 → Headroom 地址;否则 → 代理地址（逐字节一致）
+                let claude_config = self
+                    .db
+                    .get_proxy_config_for_app("claude")
+                    .await
+                    .map_err(|e| format!("获取 claude 配置失败: {e}"))?;
+                let effective_url = Self::claude_base_url(&claude_config, &proxy_url);
                 Self::apply_claude_takeover_fields_for_provider(
                     &mut live_config,
-                    &proxy_url,
+                    &effective_url,
                     &claude_provider,
                 );
                 self.write_claude_live(&live_config)?;
-                log::info!("Claude Live 配置已接管，代理地址: {proxy_url}");
+                log::info!("Claude Live 配置已接管，代理地址: {effective_url}");
             }
             AppType::Codex => {
                 let mut live_config = self.read_codex_live()?;

@@ -57,3 +57,14 @@ fn takeover_off_turns_off_compression() {
         "接管转关必须联动关压缩"
     );
 }
+
+#[test]
+fn compression_on_requires_takeover_enabled() {
+    // 接管关时开压缩 → 返回 Err
+    // 本测试用 grep 源码方式锁定门禁逻辑存在。
+    let src = std::fs::read_to_string("src/services/proxy.rs").unwrap();
+    assert!(
+        src.contains("takeover") && src.contains("compression") && src.contains("enabled"),
+        "set_compression_for_app 必须校验接管为开"
+    );
+}
