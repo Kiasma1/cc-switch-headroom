@@ -790,8 +790,9 @@ impl ProxyService {
                 .await
                 .clone()
                 .ok_or_else(|| "未注入 HeadroomManager".to_string())?;
-            headroom
-                .stop()
+            tauri::async_runtime::spawn_blocking(move || headroom.stop())
+                .await
+                .map_err(|e| format!("停止 Headroom 任务失败: {e}"))?
                 .map_err(|e| format!("停止 Headroom 失败: {e}"))?;
         }
 
@@ -868,20 +869,22 @@ impl ProxyService {
             .ok_or_else(|| "未注入 HeadroomManager".to_string())?;
 
         if enabled {
-            // 开：先起 Headroom,就绪后改配置
-            headroom
-                .start()
-                .map_err(|e| format!("启动 Headroom 失败: {e}"))?;
-
-            // 轮询等待就绪（最多 ~30s）
-            let mut ready = false;
-            for _ in 0..30 {
-                if headroom.status() == HeadroomStatus::Running {
-                    ready = true;
-                    break;
+            // 开：先起 Headroom,就绪后改配置。
+            // 全部阻塞操作放进 spawn_blocking,避免 status()->health_check()
+            // 的 reqwest::blocking 在 tokio 运行时里 panic。
+            let hr = headroom.clone();
+            let ready = tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+                hr.start().map_err(|e| format!("启动 Headroom 失败: {e}"))?;
+                for _ in 0..30 {
+                    if hr.status() == HeadroomStatus::Running {
+                        return Ok(true);
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(1));
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+                Ok(false)
+            })
+            .await
+            .map_err(|e| format!("Headroom 启动任务失败: {e}"))??;
             if !ready {
                 return Err("Headroom 未在 30s 内就绪".to_string());
             }
@@ -922,8 +925,11 @@ impl ProxyService {
                 .await
                 .map_err(|e| format!("重写 Claude 配置失败: {e}"))?;
 
-            headroom
-                .stop()
+            // 停 Headroom：放进 spawn_blocking（stop 内部有阻塞子进程调用）
+            let hr = headroom.clone();
+            tauri::async_runtime::spawn_blocking(move || hr.stop())
+                .await
+                .map_err(|e| format!("停止 Headroom 任务失败: {e}"))?
                 .map_err(|e| format!("停止 Headroom 失败: {e}"))?;
 
             Ok(true) // needs_restart
