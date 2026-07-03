@@ -47,7 +47,7 @@ export function CompressionToggle({
     setCompression.mutate({ appType: activeApp, enabled: checked });
   };
 
-  const headroomAddress = "http://127.0.0.1:8787";
+  const headroomAddress = "http://127.0.0.1:9749";
   const tooltipText = !supported
     ? t("proxy.compression.unsupported", {
         defaultValue: "当前仅 Claude 支持 Headroom 压缩",
@@ -65,11 +65,11 @@ export function CompressionToggle({
           ? t("proxy.compression.tooltip.enabled", {
               headroomAddress,
               defaultValue:
-                "当前走 Headroom（http://127.0.0.1:8787），点击关闭压缩",
+                "当前走 Headroom（http://127.0.0.1:9749），点击关闭压缩",
             })
           : t("proxy.compression.tooltip.disabled", {
               headroomAddress,
-              defaultValue: "点击启用 Headroom 压缩（http://127.0.0.1:8787）",
+              defaultValue: "点击启用 Headroom 压缩（http://127.0.0.1:9749）",
             });
 
   return (

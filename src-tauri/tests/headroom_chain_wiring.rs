@@ -21,7 +21,7 @@ fn claude_base_url_returns_headroom_when_compression_on() {
         ..Default::default()
     };
     let url = ProxyService::claude_base_url(&cfg, "http://127.0.0.1:15721");
-    assert_eq!(url, "http://127.0.0.1:8787");
+    assert_eq!(url, "http://127.0.0.1:9749");
 }
 
 #[test]

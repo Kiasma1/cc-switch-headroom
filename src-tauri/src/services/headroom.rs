@@ -17,14 +17,14 @@ use crate::error::AppError;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Headroom 压缩代理的默认本地端口。
-pub const DEFAULT_HEADROOM_PORT: u16 = 8787;
+pub const DEFAULT_HEADROOM_PORT: u16 = 9749;
 
 /// Headroom 进程的启动配置。
 #[derive(Debug, Clone)]
 pub struct HeadroomConfig {
     /// headroom.exe 的完整路径。
     pub exe_path: PathBuf,
-    /// 本地监听端口（默认 8787）。
+    /// 本地监听端口（默认 9749）。
     pub port: u16,
     /// 上游地址：写死指向 cc-switch 代理（http://127.0.0.1:15721）。
     pub upstream_url: String,
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn cmdline_matches_our_headroom() {
         let cfg = sample_config();
-        let cmd = r"headroom.exe proxy --port 8787 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
+        let cmd = r"headroom.exe proxy --port 9749 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
         assert!(cfg.cmdline_matches(cmd));
     }
 
@@ -340,14 +340,14 @@ mod tests {
     fn cmdline_rejects_stranger_process() {
         let cfg = sample_config();
         // 端口相同但不是 headroom —— 绝不能误判为我们的进程
-        let cmd = r"python.exe -m http.server 8787";
+        let cmd = r"python.exe -m http.server 9749";
         assert!(!cfg.cmdline_matches(cmd));
     }
 
     #[test]
     fn cmdline_rejects_wrong_upstream() {
         let cfg = sample_config();
-        let cmd = r"headroom.exe proxy --port 8787 --anthropic-api-url https://api.anthropic.com";
+        let cmd = r"headroom.exe proxy --port 9749 --anthropic-api-url https://api.anthropic.com";
         assert!(!cfg.cmdline_matches(cmd));
     }
 
