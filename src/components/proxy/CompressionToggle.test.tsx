@@ -38,6 +38,11 @@ vi.mock("@/hooks/useProxyStatus", () => ({
   }),
 }));
 
+// mock 设置（默认本地代理开）
+vi.mock("@/lib/query", () => ({
+  useSettingsQuery: () => ({ data: { enableLocalProxy: true } }),
+}));
+
 function renderToggle(activeApp: "claude" | "codex" = "claude") {
   const qc = new QueryClient();
   return render(

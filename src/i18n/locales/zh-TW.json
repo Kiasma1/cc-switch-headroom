@@ -2490,6 +2490,8 @@
       "failed": "切換壓縮失敗: {{detail}}",
       "restartRequired": "壓縮設定已更新，請重新啟動 Claude Code 生效",
       "takeoverRequired": "請先打開左側「代理」開關接管 Claude，再啟用壓縮",
+      "localProxyRequired": "請先在「設定 → 進階」開啟本地代理，並接管 Claude，再啟用壓縮",
+      "unsupported": "目前僅 Claude 支援 Headroom 壓縮",
       "tooltip": { "enabled": "點擊關閉 Headroom 壓縮", "disabled": "點擊啟用 Headroom 壓縮" }
     },
     "failover": {

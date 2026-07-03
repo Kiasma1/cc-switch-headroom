@@ -12,6 +12,7 @@ import {
   useSetCompressionForApp,
 } from "@/lib/query/compression";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
+import { useSettingsQuery } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import type { AppId } from "@/lib/api";
@@ -31,31 +32,41 @@ export function CompressionToggle({
   const setCompression = useSetCompressionForApp();
   const { takeoverStatus } = useProxyStatus();
   const takeoverEnabled = takeoverStatus?.[activeApp] ?? false;
+  const { data: settings } = useSettingsQuery();
+  const localProxyEnabled = settings?.enableLocalProxy ?? false;
 
   // 当前仅 Claude 支持压缩
   const supported = activeApp === "claude";
   const disabled =
     setCompression.isPending || isLoading || !takeoverEnabled || !supported;
+  // 压缩真正生效需同时满足：应用受支持 + 已接管 + 开关已开
+  const active = supported && takeoverEnabled && isEnabled;
 
   const handleToggle = (checked: boolean) => {
     if (checked && (!takeoverEnabled || !supported)) return;
     setCompression.mutate({ appType: activeApp, enabled: checked });
   };
 
-  const appLabel = activeApp === "claude" ? "Claude" : activeApp;
-
-  const tooltipText = !takeoverEnabled
-    ? t("proxy.compression.takeoverRequired", {
-        app: appLabel,
-        defaultValue: "请先打开左侧「代理」开关接管 Claude，再启用压缩",
+  const tooltipText = !supported
+    ? t("proxy.compression.unsupported", {
+        defaultValue: "当前仅 Claude 支持 Headroom 压缩",
       })
-    : isEnabled
-      ? t("proxy.compression.tooltip.enabled", {
-          defaultValue: "点击关闭 Headroom 压缩",
+    : !localProxyEnabled
+      ? t("proxy.compression.localProxyRequired", {
+          defaultValue:
+            "请先在「设置 → 高级」开启本地代理，并接管 Claude，再启用压缩",
         })
-      : t("proxy.compression.tooltip.disabled", {
-          defaultValue: "点击启用 Headroom 压缩",
-        });
+      : !takeoverEnabled
+        ? t("proxy.compression.takeoverRequired", {
+            defaultValue: "请先打开左侧「代理」开关接管 Claude，再启用压缩",
+          })
+        : active
+          ? t("proxy.compression.tooltip.enabled", {
+              defaultValue: "点击关闭 Headroom 压缩",
+            })
+          : t("proxy.compression.tooltip.disabled", {
+              defaultValue: "点击启用 Headroom 压缩",
+            });
 
   return (
     <div
@@ -72,14 +83,14 @@ export function CompressionToggle({
         <Minimize2
           className={cn(
             "h-4 w-4 transition-colors",
-            isEnabled
+            active
               ? "text-emerald-500 animate-pulse"
               : "text-muted-foreground",
           )}
         />
       )}
       <Switch
-        checked={isEnabled}
+        checked={active}
         onCheckedChange={handleToggle}
         disabled={disabled}
         aria-label={t("proxy.compression.tooltip.disabled", {
