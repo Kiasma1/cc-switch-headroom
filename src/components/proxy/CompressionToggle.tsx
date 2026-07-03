@@ -55,7 +55,7 @@ export function CompressionToggle({
     : !localProxyEnabled
       ? t("proxy.compression.localProxyRequired", {
           defaultValue:
-            "请先在「设置 → 高级 → 本地代理」开启「在主页面显示本地路由开关」",
+            "请先在「设置 → 高级 → 本地路由」开启「在主页面显示本地路由开关」",
         })
       : !takeoverEnabled
         ? t("proxy.compression.takeoverRequired", {
