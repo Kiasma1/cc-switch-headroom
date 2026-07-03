@@ -2518,9 +2518,12 @@
       "failed": "切换压缩失败: {{detail}}",
       "restartRequired": "压缩配置已更新，请重启 Claude Code 生效",
       "takeoverRequired": "请先打开左侧「代理」开关接管 Claude，再启用压缩",
-      "localProxyRequired": "请先在「设置 → 高级」开启本地代理，并接管 Claude，再启用压缩",
+      "localProxyRequired": "请先在「设置 → 高级 → 本地代理」开启「在主页面显示本地路由开关」",
       "unsupported": "当前仅 Claude 支持 Headroom 压缩",
-      "tooltip": { "enabled": "点击关闭 Headroom 压缩", "disabled": "点击启用 Headroom 压缩" }
+      "tooltip": {
+        "enabled": "当前走 Headroom（{{headroomAddress}}），点击关闭压缩",
+        "disabled": "点击启用 Headroom 压缩（{{headroomAddress}}）"
+      }
     },
     "failover": {
       "proxyRequired": "需要先启动路由服务才能配置故障转移",

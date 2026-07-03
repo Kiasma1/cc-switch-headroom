@@ -2518,9 +2518,12 @@
       "failed": "Failed to toggle compression: {{detail}}",
       "restartRequired": "Compression config updated. Restart Claude Code to take effect.",
       "takeoverRequired": "Turn on the Proxy toggle (to the left) to take over Claude first, then enable compression",
-      "localProxyRequired": "Enable Local Proxy under Settings → Advanced and take over Claude first, then enable compression",
+      "localProxyRequired": "Enable the \"Show local routing switch\" toggle under Settings → Advanced → Local Proxy first",
       "unsupported": "Only Claude supports Headroom compression",
-      "tooltip": { "enabled": "Click to disable Headroom compression", "disabled": "Click to enable Headroom compression" }
+      "tooltip": {
+        "enabled": "Traffic goes through Headroom ({{headroomAddress}}); click to disable compression",
+        "disabled": "Click to enable Headroom compression ({{headroomAddress}})"
+      }
     },
     "failover": {
       "proxyRequired": "Routing service must be started to configure failover",
