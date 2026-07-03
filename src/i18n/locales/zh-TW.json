@@ -2489,7 +2489,7 @@
       "disabled": "{{app}} 壓縮已關閉",
       "failed": "切換壓縮失敗: {{detail}}",
       "restartRequired": "壓縮設定已更新，請重新啟動 Claude Code 生效",
-      "takeoverRequired": "請先開啟代理接管，再啟用壓縮",
+      "takeoverRequired": "請先打開左側「代理」開關接管 Claude，再啟用壓縮",
       "tooltip": { "enabled": "點擊關閉 Headroom 壓縮", "disabled": "點擊啟用 Headroom 壓縮" }
     },
     "failover": {

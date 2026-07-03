@@ -2517,7 +2517,7 @@
       "disabled": "{{app}} 圧縮が無効になりました",
       "failed": "圧縮の切り替えに失敗しました: {{detail}}",
       "restartRequired": "圧縮設定を更新しました。Claude Code を再起動してください。",
-      "takeoverRequired": "先にプロキシ引き継ぎを有効にしてください",
+      "takeoverRequired": "先に左側の「プロキシ」スイッチで Claude を引き継いでから、圧縮を有効にしてください",
       "tooltip": { "enabled": "クリックして Headroom 圧縮を無効化", "disabled": "クリックして Headroom 圧縮を有効化" }
     },
     "failover": {

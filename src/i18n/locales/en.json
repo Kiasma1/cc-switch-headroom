@@ -2517,7 +2517,7 @@
       "disabled": "{{app}} compression disabled",
       "failed": "Failed to toggle compression: {{detail}}",
       "restartRequired": "Compression config updated. Restart Claude Code to take effect.",
-      "takeoverRequired": "Enable proxy takeover first, then enable compression",
+      "takeoverRequired": "Turn on the Proxy toggle (to the left) to take over Claude first, then enable compression",
       "tooltip": { "enabled": "Click to disable Headroom compression", "disabled": "Click to enable Headroom compression" }
     },
     "failover": {

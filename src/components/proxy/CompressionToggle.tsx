@@ -47,7 +47,7 @@ export function CompressionToggle({
   const tooltipText = !takeoverEnabled
     ? t("proxy.compression.takeoverRequired", {
         app: appLabel,
-        defaultValue: "请先开启代理接管，再启用压缩",
+        defaultValue: "请先打开左侧「代理」开关接管 Claude，再启用压缩",
       })
     : isEnabled
       ? t("proxy.compression.tooltip.enabled", {
@@ -61,6 +61,7 @@ export function CompressionToggle({
     <div
       className={cn(
         "flex items-center gap-1 px-1.5 h-8 rounded-lg bg-muted/50 transition-all",
+        disabled && "opacity-50",
         className,
       )}
       title={tooltipText}

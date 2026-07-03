@@ -2517,7 +2517,7 @@
       "disabled": "{{app}} 压缩已关闭",
       "failed": "切换压缩失败: {{detail}}",
       "restartRequired": "压缩配置已更新，请重启 Claude Code 生效",
-      "takeoverRequired": "请先开启代理接管，再启用压缩",
+      "takeoverRequired": "请先打开左侧「代理」开关接管 Claude，再启用压缩",
       "tooltip": { "enabled": "点击关闭 Headroom 压缩", "disabled": "点击启用 Headroom 压缩" }
     },
     "failover": {
