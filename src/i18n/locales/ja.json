@@ -2518,8 +2518,10 @@
       "failed": "圧縮の切り替えに失敗しました: {{detail}}",
       "restartRequired": "圧縮設定を更新しました。Claude Code を再起動してください。",
       "takeoverRequired": "先に左側の「プロキシ」スイッチで Claude を引き継いでから、圧縮を有効にしてください",
-      "localProxyRequired": "先に「設定 → 詳細 → ルーティング」で「メイン画面にルーティングスイッチを表示」を有効にしてください",
       "unsupported": "現在 Headroom 圧縮は Claude のみ対応しています",
+      "notReady": "クリックすると自動的にルーティングが有効になります。案内に従って Claude を引き継いでください",
+      "autoEnabledRouting": "ルーティングを自動有効化しました。左側の「プロキシ」スイッチで Claude を引き継いでから、もう一度クリックしてください",
+      "takeoverHint": "先に左側の「プロキシ」スイッチで Claude を引き継いでから、圧縮をクリックしてください",
       "tooltip": {
         "enabled": "現在 Headroom（{{headroomAddress}}）経由、クリックして圧縮を無効化",
         "disabled": "クリックして Headroom 圧縮を有効化（{{headroomAddress}}）"

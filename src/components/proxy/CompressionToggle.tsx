@@ -12,9 +12,10 @@ import {
   useSetCompressionForApp,
 } from "@/lib/query/compression";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
-import { useSettingsQuery } from "@/lib/query";
+import { useSettingsQuery, useSaveSettingsMutation } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import type { AppId } from "@/lib/api";
 
 interface CompressionToggleProps {
@@ -34,16 +35,39 @@ export function CompressionToggle({
   const takeoverEnabled = takeoverStatus?.[activeApp] ?? false;
   const { data: settings } = useSettingsQuery();
   const localProxyEnabled = settings?.enableLocalProxy ?? false;
+  const saveSettings = useSaveSettingsMutation();
 
   // 当前仅 Claude 支持压缩
   const supported = activeApp === "claude";
-  const disabled =
-    setCompression.isPending || isLoading || !takeoverEnabled || !supported;
+  const ready = supported && localProxyEnabled && takeoverEnabled;
+  const busy = setCompression.isPending || isLoading || saveSettings.isPending;
   // 压缩真正生效需同时满足：应用受支持 + 已接管 + 开关已开
   const active = supported && takeoverEnabled && isEnabled;
 
-  const handleToggle = (checked: boolean) => {
-    if (checked && (!takeoverEnabled || !supported)) return;
+  const handleToggle = async (checked: boolean) => {
+    if (!supported) return;
+    if (!localProxyEnabled) {
+      if (settings) {
+        await saveSettings.mutateAsync({ ...settings, enableLocalProxy: true });
+      }
+      toast.info(
+        t("proxy.compression.autoEnabledRouting", {
+          defaultValue:
+            "已自动开启本地路由，请点击左侧「代理」开关接管 Claude，再点压缩开关",
+        }),
+        { closeButton: true },
+      );
+      return;
+    }
+    if (!takeoverEnabled) {
+      toast.info(
+        t("proxy.compression.takeoverHint", {
+          defaultValue: "请先点击左侧「代理」开关接管 Claude，再点压缩开关",
+        }),
+        { closeButton: true },
+      );
+      return;
+    }
     setCompression.mutate({ appType: activeApp, enabled: checked });
   };
 
@@ -52,36 +76,31 @@ export function CompressionToggle({
     ? t("proxy.compression.unsupported", {
         defaultValue: "当前仅 Claude 支持 Headroom 压缩",
       })
-    : !localProxyEnabled
-      ? t("proxy.compression.localProxyRequired", {
-          defaultValue:
-            "请先在「设置 → 高级 → 本地路由」开启「在主页面显示本地路由开关」",
+    : !ready
+      ? t("proxy.compression.notReady", {
+          defaultValue: "点击后将自动开启本地路由，再按提示接管 Claude",
         })
-      : !takeoverEnabled
-        ? t("proxy.compression.takeoverRequired", {
-            defaultValue: "请先打开左侧「代理」开关接管 Claude，再启用压缩",
+      : active
+        ? t("proxy.compression.tooltip.enabled", {
+            headroomAddress,
+            defaultValue:
+              "当前走 Headroom（http://127.0.0.1:9749），点击关闭压缩",
           })
-        : active
-          ? t("proxy.compression.tooltip.enabled", {
-              headroomAddress,
-              defaultValue:
-                "当前走 Headroom（http://127.0.0.1:9749），点击关闭压缩",
-            })
-          : t("proxy.compression.tooltip.disabled", {
-              headroomAddress,
-              defaultValue: "点击启用 Headroom 压缩（http://127.0.0.1:9749）",
-            });
+        : t("proxy.compression.tooltip.disabled", {
+            headroomAddress,
+            defaultValue: "点击启用 Headroom 压缩（http://127.0.0.1:9749）",
+          });
 
   return (
     <div
       className={cn(
         "flex items-center gap-1 px-1.5 h-8 rounded-lg bg-muted/50 transition-all",
-        disabled && "opacity-50",
+        !ready && "opacity-50",
         className,
       )}
       title={tooltipText}
     >
-      {setCompression.isPending || isLoading ? (
+      {busy ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
       ) : (
         <Minimize2
@@ -95,8 +114,7 @@ export function CompressionToggle({
       )}
       <Switch
         checked={active}
-        onCheckedChange={handleToggle}
-        disabled={disabled}
+        onCheckedChange={(checked) => void handleToggle(checked)}
         aria-label={t("proxy.compression.tooltip.disabled", {
           defaultValue: "点击启用 Headroom 压缩",
         })}
