@@ -17,14 +17,14 @@ use crate::error::AppError;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Headroom 压缩代理的默认本地端口。
-pub const DEFAULT_HEADROOM_PORT: u16 = 9749;
+pub const DEFAULT_HEADROOM_PORT: u16 = 8787;
 
 /// Headroom 进程的启动配置。
 #[derive(Debug, Clone)]
 pub struct HeadroomConfig {
     /// headroom.exe 的完整路径。
     pub exe_path: PathBuf,
-    /// 本地监听端口（默认 9749）。
+    /// 本地监听端口（默认 8787）。
     pub port: u16,
     /// 上游地址：写死指向 cc-switch 代理（http://127.0.0.1:15721）。
     pub upstream_url: String,
@@ -112,15 +112,26 @@ pub fn command_line_for_pid(pid: &str) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
-/// 探测 Headroom 的 /livez 端点是否返回 2xx。
+/// 探测 Headroom 的 /livez 端点是否返回 2xx **且响应体确系我们的 headroom-proxy**。
 /// 用于判定进程是否已就绪 / 仍存活。
+///
+/// 身份校验（响应体含 `headroom-proxy`）不可省：否则碰巧占用同端口、
+/// 也应答 /livez 200 的其他服务（如 codebase-memory）会被误判为 Headroom 就绪，
+/// 从而把 Claude 的 base URL 指向一个非 Anthropic 代理，导致请求失败。
 pub fn health_check(port: u16, timeout: Duration) -> bool {
     let url = format!("http://127.0.0.1:{port}/livez");
     let client = match reqwest::blocking::Client::builder().timeout(timeout).build() {
         Ok(c) => c,
         Err(_) => return false,
     };
-    matches!(client.get(&url).send(), Ok(resp) if resp.status().is_success())
+    let Ok(resp) = client.get(&url).send() else {
+        return false;
+    };
+    if !resp.status().is_success() {
+        return false;
+    }
+    // /livez 返回 {"service":"headroom-proxy", ...}，据此确认应答者身份。
+    matches!(resp.text(), Ok(body) if body.contains("headroom-proxy"))
 }
 
 /// Headroom 进程的观测状态。
@@ -325,7 +336,7 @@ mod tests {
     #[test]
     fn cmdline_matches_our_headroom() {
         let cfg = sample_config();
-        let cmd = r"headroom.exe proxy --port 9749 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
+        let cmd = r"headroom.exe proxy --port 8787 --host 127.0.0.1 --anthropic-api-url http://127.0.0.1:15721";
         assert!(cfg.cmdline_matches(cmd));
     }
 
@@ -340,14 +351,14 @@ mod tests {
     fn cmdline_rejects_stranger_process() {
         let cfg = sample_config();
         // 端口相同但不是 headroom —— 绝不能误判为我们的进程
-        let cmd = r"python.exe -m http.server 9749";
+        let cmd = r"python.exe -m http.server 8787";
         assert!(!cfg.cmdline_matches(cmd));
     }
 
     #[test]
     fn cmdline_rejects_wrong_upstream() {
         let cfg = sample_config();
-        let cmd = r"headroom.exe proxy --port 9749 --anthropic-api-url https://api.anthropic.com";
+        let cmd = r"headroom.exe proxy --port 8787 --anthropic-api-url https://api.anthropic.com";
         assert!(!cfg.cmdline_matches(cmd));
     }
 
@@ -372,19 +383,44 @@ mod tests {
 
     #[test]
     fn health_check_true_on_200_false_on_no_server() {
+        // 我们的 headroom：200 + 响应体含 "headroom-proxy" → 健康
         let listener = StdTcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let handle = thread::spawn(move || {
             if let Ok((mut stream, _)) = listener.accept() {
                 let mut buf = [0u8; 512];
                 let _ = stream.read(&mut buf);
-                let _ = stream.write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+                let body = br#"{"service":"headroom-proxy","alive":true}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                    body.len()
                 );
+                let _ = stream.write_all(resp.as_bytes());
+                let _ = stream.write_all(body);
             }
         });
-        assert!(health_check(port, Duration::from_secs(2)), "200 应判为健康");
+        assert!(
+            health_check(port, Duration::from_secs(2)),
+            "headroom /livez 200 应判为健康"
+        );
         let _ = handle.join();
+
+        // 冒充者：200 但响应体不含 "headroom-proxy"（如 codebase-memory）→ 不健康
+        let foreign = StdTcpListener::bind("127.0.0.1:0").unwrap();
+        let foreign_port = foreign.local_addr().unwrap().port();
+        let foreign_handle = thread::spawn(move || {
+            if let Ok((mut stream, _)) = foreign.accept() {
+                let mut buf = [0u8; 512];
+                let _ = stream.read(&mut buf);
+                let _ = stream
+                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
+            }
+        });
+        assert!(
+            !health_check(foreign_port, Duration::from_secs(2)),
+            "非 headroom 的服务应判为不健康（防端口冒名）"
+        );
+        let _ = foreign_handle.join();
 
         // 无服务器的端口
         let dead = StdTcpListener::bind("127.0.0.1:0").unwrap();

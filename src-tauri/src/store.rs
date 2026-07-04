@@ -19,7 +19,7 @@ impl AppState {
         let home = get_home_dir();
         let headroom_cfg = HeadroomConfig {
             exe_path: home.join(".headroom-venv").join("Scripts").join("headroom.exe"),
-            port: 9749,
+            port: 8787,
             upstream_url: "http://127.0.0.1:15721".to_string(),
         };
         let headroom_log = home.join(".headroom").join("logs").join("claude-proxy.log");
