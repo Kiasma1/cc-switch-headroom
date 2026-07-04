@@ -17,6 +17,14 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), info: vi.fn(), warning: vi.fn(), error: vi.fn() },
 }));
 
+// mock 压缩 api（预热）—— 用 vi.hoisted 避免 vi.mock 提升导致的 TDZ
+const { prewarmHeadroom } = vi.hoisted(() => ({
+  prewarmHeadroom: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@/lib/api/compression", () => ({
+  compressionApi: { prewarmHeadroom },
+}));
+
 // mock 压缩状态 + mutation
 const setCompressionMutate = vi.fn();
 const setCompressionAsync = vi.fn().mockResolvedValue(true);
@@ -63,9 +71,33 @@ describe("CompressionToggle", () => {
     setCompressionMutate.mockClear();
     setCompressionAsync.mockClear();
     setTakeoverForApp.mockClear();
+    prewarmHeadroom.mockClear();
     (toast.info as ReturnType<typeof vi.fn>).mockClear();
     compressionEnabled = false;
     takeoverOn = true;
+  });
+
+  it("就绪且未压缩时：挂载即预热 Headroom", async () => {
+    takeoverOn = true;
+    compressionEnabled = false;
+    renderToggle("claude");
+    await waitFor(() => expect(prewarmHeadroom).toHaveBeenCalledTimes(1));
+  });
+
+  it("未接管（未就绪）时：不预热", async () => {
+    takeoverOn = false;
+    renderToggle("claude");
+    // 给 effect 一个执行窗口
+    await new Promise((r) => setTimeout(r, 0));
+    expect(prewarmHeadroom).not.toHaveBeenCalled();
+  });
+
+  it("已压缩(active)时：不重复预热", async () => {
+    takeoverOn = true;
+    compressionEnabled = true;
+    renderToggle("claude");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(prewarmHeadroom).not.toHaveBeenCalled();
   });
 
   it("开压缩：先弹确认对话框，不直接触达后端", async () => {

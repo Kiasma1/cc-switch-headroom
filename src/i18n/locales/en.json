@@ -2519,6 +2519,7 @@
       "globalRerouted": "Global routing switched: every Claude session on this machine now goes through the compression chain. Restart Claude Code for a clean cutover.",
       "unsupported": "Only Claude supports Headroom compression",
       "activeBadge": "Compressing",
+      "starting": "Starting…",
       "confirm": {
         "title": "Enable Headroom compression?",
         "confirm": "Enable",

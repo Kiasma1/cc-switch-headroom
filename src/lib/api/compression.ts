@@ -18,4 +18,13 @@ export const compressionApi = {
   ): Promise<boolean> {
     return invoke("set_compression_for_app", { appType, enabled });
   },
+
+  /**
+   * 预热 Headroom：仅 spawn/复用进程（start() 不等待就绪），把 Python 冷启动
+   * （实测约 17s）挪到后台提前跑，使随后开压缩时 set_compression 的就绪轮询能
+   * 立刻命中、开关秒过。幂等：已在跑则直接复用。
+   */
+  async prewarmHeadroom(): Promise<void> {
+    return invoke("headroom_start");
+  },
 };

@@ -2519,6 +2519,7 @@
       "globalRerouted": "グローバルルーティングを切り替えました：このマシンのすべての Claude セッションが圧縮チェーンを経由するようになりました。クリーンに反映するには Claude Code を再起動してください。",
       "unsupported": "現在 Headroom 圧縮は Claude のみ対応しています",
       "activeBadge": "圧縮中",
+      "starting": "起動中…",
       "confirm": {
         "title": "Headroom 圧縮を有効にしますか？",
         "confirm": "有効にする",

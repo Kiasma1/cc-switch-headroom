@@ -13,7 +13,7 @@
  *   （后端 set_takeover_for_app 会自动拉起代理服务）。
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minimize2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -21,6 +21,7 @@ import {
   useCompressionStatus,
   useSetCompressionForApp,
 } from "@/lib/query/compression";
+import { compressionApi } from "@/lib/api/compression";
 import { useProxyStatus } from "@/hooks/useProxyStatus";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -55,7 +56,27 @@ export function CompressionToggle({
   const ready = supported && takeoverEnabled;
   // 压缩真正生效需同时满足：受支持 + 已接管 + 开关已开
   const active = supported && takeoverEnabled && isEnabled;
-  const busy = setCompression.isPending || isLoading || isProxyPending;
+  // 正在执行开启流程（自动接管 + 起压缩），用于"启动中…"反馈
+  const enabling = setCompression.isPending || isProxyPending;
+  const busy = enabling || isLoading;
+
+  // A. 预热 Headroom：一旦就绪且压缩未开，后台提前 spawn Headroom，
+  //    把 ~17s 的 Python 冷启动挪到用户点开关之前，使随后开压缩秒过。
+  //    只在 ready 上升沿触发一次；关压缩(逃生阀)后不自动重热，尊重用户"停"的意图。
+  const prewarmedRef = useRef(false);
+  useEffect(() => {
+    if (!ready) {
+      prewarmedRef.current = false;
+      return;
+    }
+    if (active || prewarmedRef.current) return;
+    prewarmedRef.current = true;
+    compressionApi.prewarmHeadroom().catch((e) => {
+      // 预热失败不打扰用户（开压缩时仍会正常尝试启动），仅允许下次重试
+      console.warn("[CompressionToggle] prewarm headroom failed:", e);
+      prewarmedRef.current = false;
+    });
+  }, [ready, active]);
 
   const handleToggle = (checked: boolean) => {
     if (!supported) {
@@ -131,7 +152,11 @@ export function CompressionToggle({
             )}
           />
         )}
-        {active ? (
+        {enabling ? (
+          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+            {t("proxy.compression.starting", { defaultValue: "启动中…" })}
+          </span>
+        ) : active ? (
           <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
             {t("proxy.compression.activeBadge", { defaultValue: "压缩中" })}
           </span>

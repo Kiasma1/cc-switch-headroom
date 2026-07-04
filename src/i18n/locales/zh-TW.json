@@ -2491,6 +2491,7 @@
       "globalRerouted": "已切換全域路由：本機所有 Claude 工作階段現在改走壓縮鏈路。建議重新啟動 Claude Code 以乾淨生效。",
       "unsupported": "目前僅 Claude 支援 Headroom 壓縮",
       "activeBadge": "壓縮中",
+      "starting": "啟動中…",
       "confirm": {
         "title": "開啟 Headroom 壓縮？",
         "confirm": "確認開啟",

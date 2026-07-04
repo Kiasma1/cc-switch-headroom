@@ -2519,6 +2519,7 @@
       "globalRerouted": "已切换全局路由：本机所有 Claude 会话现在改走压缩链路。建议重启 Claude Code 以干净生效。",
       "unsupported": "当前仅 Claude 支持 Headroom 压缩",
       "activeBadge": "压缩中",
+      "starting": "启动中…",
       "confirm": {
         "title": "开启 Headroom 压缩？",
         "confirm": "确认开启",
