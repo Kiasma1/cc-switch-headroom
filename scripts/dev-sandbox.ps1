@@ -20,6 +20,14 @@ $ErrorActionPreference = "Stop"
 
 $Sandbox = Join-Path $env:USERPROFILE "cc-switch-sandbox"
 New-Item -ItemType Directory -Force -Path $Sandbox | Out-Null
+# 确保沙箱 home 下有 ~/.claude 目录 + settings.json(接管/路由切换要读它,缺则报"Claude 配置文件不存在")
+$ClaudeDir = Join-Path $Sandbox ".claude"
+New-Item -ItemType Directory -Force -Path $ClaudeDir | Out-Null
+$ClaudeSettings = Join-Path $ClaudeDir "settings.json"
+if (-not (Test-Path $ClaudeSettings)) {
+    "{}" | Set-Content -Path $ClaudeSettings -Encoding UTF8
+    Write-Host "已在沙箱补种空的 .claude/settings.json" -ForegroundColor Green
+}
 
 $env:CC_SWITCH_TEST_HOME = $Sandbox
 
