@@ -2516,15 +2516,19 @@
       "enabled": "{{app}} compression enabled",
       "disabled": "{{app}} compression disabled",
       "failed": "Failed to toggle compression: {{detail}}",
-      "restartRequired": "Compression config updated. Restart Claude Code to take effect.",
-      "takeoverRequired": "Turn on the Proxy toggle (to the left) to take over Claude first, then enable compression",
+      "globalRerouted": "Global routing switched: every Claude session on this machine now goes through the compression chain. Restart Claude Code for a clean cutover.",
       "unsupported": "Only Claude supports Headroom compression",
-      "notReady": "Click to auto-enable local routing, then follow the prompt to take over Claude",
-      "autoEnabledRouting": "Local routing auto-enabled. Turn on the Proxy toggle (left) to take over Claude, then click compression again",
-      "takeoverHint": "Turn on the Proxy toggle (left) to take over Claude first, then click compression",
+      "activeBadge": "Compressing",
+      "confirm": {
+        "title": "Enable Headroom compression?",
+        "confirm": "Enable",
+        "messageCompressionOnly": "This starts the Headroom compression proxy and switches Claude's global route to {{headroomAddress}}.\n\n⚠️ It immediately rewrites the shared ~/.claude config. Every running Claude Code session (including this one) will switch to the compression chain right away. Restart Claude Code after confirming for a clean cutover.",
+        "messageWithTakeover": "This will, in order:\n① Take over Claude's global config (auto-starts the local proxy)\n② Start the Headroom compression proxy and switch the route to {{headroomAddress}}\n\n⚠️ It immediately rewrites the shared ~/.claude config. Every running Claude Code session (including this one) will switch to the compression chain right away. Restart Claude Code after confirming for a clean cutover."
+      },
       "tooltip": {
-        "enabled": "Traffic goes through Headroom ({{headroomAddress}}); click to disable compression",
-        "disabled": "Click to enable Headroom compression ({{headroomAddress}})"
+        "enabled": "Traffic: Claude → Headroom ({{headroomAddress}}) → local proxy → provider. Click to disable compression",
+        "readyOff": "Click to enable Headroom compression (reroutes to {{headroomAddress}}, affects all Claude sessions on this machine)",
+        "needsTakeover": "Click to confirm 'take over Claude + enable compression'; this rewrites the route for all Claude sessions on this machine"
       }
     },
     "failover": {

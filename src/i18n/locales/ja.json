@@ -2516,15 +2516,19 @@
       "enabled": "{{app}} 圧縮が有効になりました",
       "disabled": "{{app}} 圧縮が無効になりました",
       "failed": "圧縮の切り替えに失敗しました: {{detail}}",
-      "restartRequired": "圧縮設定を更新しました。Claude Code を再起動してください。",
-      "takeoverRequired": "先に左側の「プロキシ」スイッチで Claude を引き継いでから、圧縮を有効にしてください",
+      "globalRerouted": "グローバルルーティングを切り替えました：このマシンのすべての Claude セッションが圧縮チェーンを経由するようになりました。クリーンに反映するには Claude Code を再起動してください。",
       "unsupported": "現在 Headroom 圧縮は Claude のみ対応しています",
-      "notReady": "クリックすると自動的にルーティングが有効になります。案内に従って Claude を引き継いでください",
-      "autoEnabledRouting": "ルーティングを自動有効化しました。左側の「プロキシ」スイッチで Claude を引き継いでから、もう一度クリックしてください",
-      "takeoverHint": "先に左側の「プロキシ」スイッチで Claude を引き継いでから、圧縮をクリックしてください",
+      "activeBadge": "圧縮中",
+      "confirm": {
+        "title": "Headroom 圧縮を有効にしますか？",
+        "confirm": "有効にする",
+        "messageCompressionOnly": "確認すると Headroom 圧縮プロキシを起動し、Claude のグローバルルートを {{headroomAddress}} に切り替えます。\n\n⚠️ これは共有の ~/.claude 設定を即座に書き換えます。実行中のすべての Claude Code セッション（現在のものを含む）がすぐに圧縮チェーンへ切り替わります。確認後は Claude Code を再起動してクリーンに反映してください。",
+        "messageWithTakeover": "確認すると順に：\n① Claude のグローバル設定を引き継ぐ（ローカルプロキシを自動起動）\n② Headroom 圧縮プロキシを起動しルートを {{headroomAddress}} に切り替える\n\n⚠️ これは共有の ~/.claude 設定を即座に書き換えます。実行中のすべての Claude Code セッション（現在のものを含む）がすぐに圧縮チェーンへ切り替わります。確認後は Claude Code を再起動してクリーンに反映してください。"
+      },
       "tooltip": {
-        "enabled": "現在 Headroom（{{headroomAddress}}）経由、クリックして圧縮を無効化",
-        "disabled": "クリックして Headroom 圧縮を有効化（{{headroomAddress}}）"
+        "enabled": "現在の流れ：Claude → Headroom（{{headroomAddress}}）→ ローカルプロキシ → プロバイダー。クリックして圧縮を無効化",
+        "readyOff": "クリックして Headroom 圧縮を有効化（{{headroomAddress}} に切り替わり、このマシンのすべての Claude セッションに影響します）",
+        "needsTakeover": "クリックすると「Claude を引き継ぐ + 圧縮を有効化」を確認します。これはこのマシンのすべての Claude セッションのルートを書き換えます"
       }
     },
     "failover": {

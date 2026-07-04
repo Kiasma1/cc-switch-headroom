@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CompressionToggle } from "./CompressionToggle";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ vi.mock("sonner", () => ({
 
 // mock 压缩状态 + mutation
 const setCompressionMutate = vi.fn();
+const setCompressionAsync = vi.fn().mockResolvedValue(true);
 let compressionEnabled = false;
 vi.mock("@/lib/query/compression", () => ({
   useCompressionStatus: () => ({
@@ -27,27 +28,18 @@ vi.mock("@/lib/query/compression", () => ({
   }),
   useSetCompressionForApp: () => ({
     mutate: setCompressionMutate,
+    mutateAsync: setCompressionAsync,
     isPending: false,
   }),
 }));
 
-// mock 接管状态（默认接管开）
+// mock 代理/接管状态
 let takeoverOn = true;
+const setTakeoverForApp = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/hooks/useProxyStatus", () => ({
   useProxyStatus: () => ({
     takeoverStatus: { claude: takeoverOn },
-  }),
-}));
-
-// mock 设置（默认本地代理开 + 接管开，save 返回 resolved）
-let localProxyOn = true;
-const saveSettingsAsync = vi.fn().mockResolvedValue(undefined);
-vi.mock("@/lib/query", () => ({
-  useSettingsQuery: () => ({
-    data: { enableLocalProxy: localProxyOn, enableCompressionToggle: true },
-  }),
-  useSaveSettingsMutation: () => ({
-    mutateAsync: saveSettingsAsync,
+    setTakeoverForApp,
     isPending: false,
   }),
 }));
@@ -61,43 +53,80 @@ function renderToggle(activeApp: "claude" | "codex" = "claude") {
   );
 }
 
+/** 找确认对话框里的「确认开启」按钮 */
+function getConfirmButton() {
+  return screen.getByRole("button", { name: "确认开启" });
+}
+
 describe("CompressionToggle", () => {
   beforeEach(() => {
     setCompressionMutate.mockClear();
-    saveSettingsAsync.mockClear();
+    setCompressionAsync.mockClear();
+    setTakeoverForApp.mockClear();
     (toast.info as ReturnType<typeof vi.fn>).mockClear();
     compressionEnabled = false;
     takeoverOn = true;
-    localProxyOn = true;
   });
 
-  it("全部就绪时，点击开关调用 set_compression_for_app", async () => {
+  it("开压缩：先弹确认对话框，不直接触达后端", async () => {
     renderToggle("claude");
-    const sw = screen.getByRole("switch");
-    await fireEvent.click(sw);
-    expect(setCompressionMutate).toHaveBeenCalledWith({
+    await fireEvent.click(screen.getByRole("switch"));
+    // 点开关只弹确认框，尚未调用后端
+    expect(setCompressionAsync).not.toHaveBeenCalled();
+    expect(getConfirmButton()).toBeInTheDocument();
+  });
+
+  it("确认后（已接管）：只开压缩，不重复接管", async () => {
+    takeoverOn = true;
+    renderToggle("claude");
+    await fireEvent.click(screen.getByRole("switch"));
+    await fireEvent.click(getConfirmButton());
+    await waitFor(() =>
+      expect(setCompressionAsync).toHaveBeenCalledWith({
+        appType: "claude",
+        enabled: true,
+      }),
+    );
+    expect(setTakeoverForApp).not.toHaveBeenCalled();
+  });
+
+  it("确认后（未接管）：先自动接管再开压缩", async () => {
+    takeoverOn = false;
+    renderToggle("claude");
+    await fireEvent.click(screen.getByRole("switch"));
+    await fireEvent.click(getConfirmButton());
+    await waitFor(() =>
+      expect(setTakeoverForApp).toHaveBeenCalledWith({
+        appType: "claude",
+        enabled: true,
+      }),
+    );
+    expect(setCompressionAsync).toHaveBeenCalledWith({
       appType: "claude",
       enabled: true,
     });
   });
 
-  it("本地代理关闭时，点击自动开启本地路由并提示接管", async () => {
-    localProxyOn = false;
+  it("关压缩：逃生阀，秒关不弹确认", async () => {
+    compressionEnabled = true;
+    takeoverOn = true;
     renderToggle("claude");
     await fireEvent.click(screen.getByRole("switch"));
-    expect(saveSettingsAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ enableLocalProxy: true }),
-    );
-    expect(toast.info).toHaveBeenCalled();
-    // 本地代理未就绪时不触达后端压缩命令
-    expect(setCompressionMutate).not.toHaveBeenCalled();
+    expect(setCompressionMutate).toHaveBeenCalledWith({
+      appType: "claude",
+      enabled: false,
+    });
+    // 关不弹确认框
+    expect(
+      screen.queryByRole("button", { name: "确认开启" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("接管关闭时，点击提示接管 Claude，不触达后端", async () => {
-    takeoverOn = false;
-    renderToggle("claude");
+  it("非 Claude：点击提示不支持，不触达后端", async () => {
+    renderToggle("codex");
     await fireEvent.click(screen.getByRole("switch"));
     expect(toast.info).toHaveBeenCalled();
     expect(setCompressionMutate).not.toHaveBeenCalled();
+    expect(setCompressionAsync).not.toHaveBeenCalled();
   });
 });

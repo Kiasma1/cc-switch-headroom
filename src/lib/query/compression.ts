@@ -37,12 +37,16 @@ export function useSetCompressionForApp() {
             }),
         { closeButton: true },
       );
-      if (needsRestart) {
+      // 压缩切换是**全局立即生效**：base URL 已写入共享的 ~/.claude，
+      // 本机所有 Claude 会话已改走新路由。needsRestart 仅表示"建议重启以
+      // 干净生效"，不是"改动尚未生效"——文案必须诚实，不能谎报"请重启生效"。
+      if (needsRestart && variables.enabled) {
         toast.warning(
-          t("proxy.compression.restartRequired", {
-            defaultValue: "压缩配置已更新，请重启 Claude Code 生效",
+          t("proxy.compression.globalRerouted", {
+            defaultValue:
+              "已切换全局路由：本机所有 Claude 会话现在改走压缩链路。建议重启 Claude Code 以干净生效。",
           }),
-          { duration: 5000, closeButton: true },
+          { duration: 6000, closeButton: true },
         );
       }
       queryClient.invalidateQueries({ queryKey: ["compressionStatus"] });

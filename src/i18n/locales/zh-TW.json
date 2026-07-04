@@ -2488,15 +2488,19 @@
       "enabled": "{{app}} 壓縮已啟用",
       "disabled": "{{app}} 壓縮已關閉",
       "failed": "切換壓縮失敗: {{detail}}",
-      "restartRequired": "壓縮設定已更新，請重新啟動 Claude Code 生效",
-      "takeoverRequired": "請先打開左側「代理」開關接管 Claude，再啟用壓縮",
+      "globalRerouted": "已切換全域路由：本機所有 Claude 工作階段現在改走壓縮鏈路。建議重新啟動 Claude Code 以乾淨生效。",
       "unsupported": "目前僅 Claude 支援 Headroom 壓縮",
-      "notReady": "點擊後將自動開啟本地路由，再按提示接管 Claude",
-      "autoEnabledRouting": "已自動開啟本地路由，請點擊左側「代理」開關接管 Claude，再點壓縮開關",
-      "takeoverHint": "請先點擊左側「代理」開關接管 Claude，再點壓縮開關",
+      "activeBadge": "壓縮中",
+      "confirm": {
+        "title": "開啟 Headroom 壓縮？",
+        "confirm": "確認開啟",
+        "messageCompressionOnly": "確認後將啟動 Headroom 壓縮代理，並把 Claude 的全域路由切到 {{headroomAddress}}。\n\n⚠️ 這會立即改寫本機共享的 ~/.claude 設定，所有正在執行的 Claude Code 工作階段（包括你目前這個）會馬上改走壓縮鏈路。建議確認後重新啟動 Claude Code 以乾淨生效。",
+        "messageWithTakeover": "確認後將依序：\n① 接管 Claude 全域設定（自動啟動本地代理）\n② 啟動 Headroom 壓縮代理並把路由切到 {{headroomAddress}}\n\n⚠️ 這會立即改寫本機共享的 ~/.claude 設定，所有正在執行的 Claude Code 工作階段（包括你目前這個）會馬上改走壓縮鏈路。建議確認後重新啟動 Claude Code 以乾淨生效。"
+      },
       "tooltip": {
-        "enabled": "目前走 Headroom（{{headroomAddress}}），點擊關閉壓縮",
-        "disabled": "點擊啟用 Headroom 壓縮（{{headroomAddress}}）"
+        "enabled": "目前流量：Claude → Headroom（{{headroomAddress}}）→ 本地代理 → 供應商。點擊關閉壓縮",
+        "readyOff": "點擊開啟 Headroom 壓縮（會改走 {{headroomAddress}}，影響本機所有 Claude 工作階段）",
+        "needsTakeover": "點擊後將確認「接管 Claude + 開啟壓縮」，這會改寫本機所有 Claude 工作階段的路由"
       }
     },
     "failover": {
